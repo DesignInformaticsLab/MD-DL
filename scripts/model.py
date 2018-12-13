@@ -15,17 +15,17 @@ def get_model(point_cloud, is_training, bn_decay=None):
     num_point = point_cloud.get_shape()[1].value
 
     input_image = tf.expand_dims(point_cloud, -1)
-    width = 1
+    width = 8.
     # CONV
-    net = tf_util.conv2d(input_image, 64*width, [1,6], padding='VALID', stride=[1,1],
+    net = tf_util.conv2d(input_image, int(64*width), [1,6], padding='VALID', stride=[1,1],
                          bn=True, is_training=is_training, scope='conv1', bn_decay=bn_decay)
-    net = tf_util.conv2d(net, 64*width, [1,1], padding='VALID', stride=[1,1],
+    net = tf_util.conv2d(net, int(64*width), [1,1], padding='VALID', stride=[1,1],
                          bn=True, is_training=is_training, scope='conv2', bn_decay=bn_decay)
-    net = tf_util.conv2d(net, 64*width, [1,1], padding='VALID', stride=[1,1],
+    net = tf_util.conv2d(net, int(64*width), [1,1], padding='VALID', stride=[1,1],
                          bn=True, is_training=is_training, scope='conv3', bn_decay=bn_decay)
-    net = tf_util.conv2d(net, 128*width, [1,1], padding='VALID', stride=[1,1],
+    net = tf_util.conv2d(net, int(128*width), [1,1], padding='VALID', stride=[1,1],
                          bn=True, is_training=is_training, scope='conv4', bn_decay=bn_decay)
-    points_feat1 = tf_util.conv2d(net, 1024*width, [1,1], padding='VALID', stride=[1,1],
+    points_feat1 = tf_util.conv2d(net, int(1024*width), [1,1], padding='VALID', stride=[1,1],
                          bn=True, is_training=is_training, scope='conv5', bn_decay=bn_decay)
     # MAX
     pc_feat1 = tf_util.max_pool2d(points_feat1, [num_point,1], padding='VALID', scope='maxpool1')
@@ -50,7 +50,7 @@ def get_model(point_cloud, is_training, bn_decay=None):
     #                      bn=True, is_training=is_training, scope='conv7_1')
     net = tf_util.conv2d(net, 32, [1,1], padding='VALID', stride=[1,1], scope='conv8')
     # net = tf_util.conv2d(net, 32, [1,1], padding='VALID', stride=[1,1], scope='conv8_1')
-    net = tf_util.dropout(net, keep_prob=0.7, is_training=is_training, scope='dp1')
+    net = tf_util.dropout(net, keep_prob=1.0, is_training=is_training, scope='dp1')
     net = tf_util.conv2d(net, 3, [1,1], padding='VALID', stride=[1,1],
                          activation_fn=None, scope='conv9') # xyz position
     net = tf.squeeze(net, [2])

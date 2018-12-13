@@ -17,9 +17,9 @@ import tf_util
 from model import *
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--gpu', type=int, default=0, help='GPU to use [default: GPU 0]')
+parser.add_argument('--gpu', type=int, default=1, help='GPU to use [default: GPU 0]')
 parser.add_argument('--log_dir', default='log_larger', help='Log dir [default: log_larger]')
-parser.add_argument('--num_point', type=int, default=100, help='Point number [default: 4096]')
+parser.add_argument('--num_point', type=int, default=10, help='Point number [default: 4096]')
 parser.add_argument('--max_epoch', type=int, default=5000, help='Epoch to run [default: 50]')
 parser.add_argument('--batch_size', type=int, default=50, help='Batch Size during training [default: 24]')
 parser.add_argument('--learning_rate', type=float, default=0.001, help='Initial learning rate [default: 0.001]')
@@ -99,6 +99,7 @@ def train():
 
             # Get model and loss 
             pred = get_model(pointclouds_pl, is_training_pl, bn_decay=bn_decay)
+            # pred += pointclouds_pl[:,:,:3]
             loss = get_loss(pred, labels_pl)
             tf.summary.scalar('loss', loss)
 
@@ -140,13 +141,16 @@ def train():
                'merged': merged,
                'step': batch}
 
+        train_acc = []
+        test_acc = []
         for epoch in range(MAX_EPOCH):
             log_string('**** EPOCH %03d ****' % (epoch))
             sys.stdout.flush()
              
-            train_one_epoch(sess, ops, train_writer)
-            eval_one_epoch(sess, ops, test_writer)
-            
+            train_acc_i = train_one_epoch(sess, ops, train_writer)
+            test_acc_i = eval_one_epoch(sess, ops, test_writer)
+            train_acc += [train_acc_i]
+            test_acc += [test_acc_i]
             # Save the variables to disk.
             if epoch % 10 == 0:
                 save_path = saver.save(sess, os.path.join(LOG_DIR, "model.ckpt"))
@@ -160,7 +164,8 @@ def train_one_epoch(sess, ops, train_writer):
     
     log_string('----')
     # current_data, current_label, _ = provider.shuffle_data(train_data[:,0:NUM_POINT,:], train_label)
-    data = np.load('../data_30k/training_data.npy').item()
+    # data = np.load('../new_data_10k/training_data.npy').item()
+    data = np.load('../data_atom10/training_data.npy').item()
     current_data, current_label = np.concatenate([data['pos_in'],data['force_in']], -1), data['pos_out']
     file_size = current_data.shape[0]
     num_batches = file_size // BATCH_SIZE
@@ -183,9 +188,10 @@ def train_one_epoch(sess, ops, train_writer):
         train_writer.add_summary(summary, step)
         total_seen += (BATCH_SIZE*NUM_POINT)
         loss_sum += loss_val
-    
-    log_string('mean loss: %f' % (loss_sum / float(num_batches)))
 
+    acc = loss_sum / float(num_batches)
+    log_string('mean loss: %f' % (acc))
+    return acc
         
 def eval_one_epoch(sess, ops, test_writer):
     """ ops: dict mapping from string to tf ops """
@@ -196,7 +202,8 @@ def eval_one_epoch(sess, ops, test_writer):
     log_string('----')
     # current_data = test_data[:,0:NUM_POINT,:]
     # current_label = np.squeeze(test_label)
-    data = np.load('../data_30k/testing_data.npy').item()
+    # data = np.load('../new_data_10k/testing_data.npy').item()
+    data = np.load('../data_atom10/testing_data.npy').item()
     current_data, current_label = np.concatenate([data['pos_in'],data['force_in']], -1), data['pos_out']
 
     file_size = current_data.shape[0]
@@ -215,18 +222,34 @@ def eval_one_epoch(sess, ops, test_writer):
         total_seen += (BATCH_SIZE*NUM_POINT)
         loss_sum += (loss_val*BATCH_SIZE)
 
-    log_string('eval mean loss: %f' % (loss_sum / float(total_seen/NUM_POINT)))
+    acc = loss_sum / float(total_seen/NUM_POINT)
+    log_string('eval mean loss: %f' % (acc))
+    return acc
 
     def visual():
         import matplotlib.pyplot as plt
-        input = current_data[start_idx:end_idx]
-        # plt.plot(input[0,:,0], input[0,:,1], 'r.', label='input in xy plane')
-        ref = current_label[start_idx:end_idx]
-        plt.plot(ref[0, :, 0], ref[0, :, 1], 'b.', label='output in xy plane')
-        plt.plot(pred_val[0, :, 0], pred_val[0, :, 1], 'k.', label='prediction in xy plane')
-        plt.grid('on')
-        plt.show()
+        from mpl_toolkits.mplot3d import Axes3D  # noqa: F401 unused import
+        pt_idx = 30
+        tt_pt = 5
+        fig = plt.figure()
+        ax = fig.add_subplot(111, projection='3d')
+        ax.plot(pred_val[0, pt_idx:pt_idx + tt_pt, 0], pred_val[0, pt_idx:pt_idx + tt_pt, 1],
+                pred_val[0, pt_idx:pt_idx + tt_pt, 2], 'k.')
+        ax.plot(current_label[start_idx:end_idx][0, pt_idx:pt_idx + tt_pt, 0],
+                current_label[start_idx:end_idx][0, pt_idx:pt_idx + tt_pt, 1],
+                current_label[start_idx:end_idx][0, pt_idx:pt_idx + tt_pt, 2], 'r.')
+        ax.plot(current_data[start_idx:end_idx][0, pt_idx:pt_idx + tt_pt, 0],
+                current_data[start_idx:end_idx][0, pt_idx:pt_idx + tt_pt, 1],
+                current_data[start_idx:end_idx][0, pt_idx:pt_idx + tt_pt, 2], 'y.')
+        ax.set_xlim3d(0, 1)
+        ax.set_ylim3d(0, 1)
+        ax.set_zlim3d(0, 1)
 
 if __name__ == "__main__":
     train()
     LOG_FOUT.close()
+
+
+# np.savetxt('case1.txt',pred_val.reshape(50,300)) #testing case prediction, not sure
+# np.savetxt('case2.txt',current_data[start_idx:end_idx,:,:3].reshape(50,300)) #initial, high force and energy
+# np.savetxt('case3.txt',current_label[start_idx:end_idx].reshape(50,300)) #reference, low force and energy
