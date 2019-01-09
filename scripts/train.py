@@ -87,7 +87,7 @@ def train():
     with tf.Graph().as_default():
         with tf.device('/gpu:'+str(GPU_INDEX)):
             pointclouds_pl = tf.placeholder(tf.float32, shape=(BATCH_SIZE, NUM_POINT, 6))
-            labels_pl = tf.placeholder(tf.float32, shape=(BATCH_SIZE, NUM_POINT, 3))
+            labels_pl = tf.placeholder(tf.float32, shape=(BATCH_SIZE, NUM_POINT, 6))
 
             is_training_pl = tf.placeholder(tf.bool, shape=())
             
@@ -100,7 +100,7 @@ def train():
             # Get model and loss 
             pred = get_model(pointclouds_pl, is_training_pl, bn_decay=bn_decay)
             # pred += pointclouds_pl[:,:,:3]
-            loss = get_loss(pred, labels_pl)
+            loss_dist, loss_force, loss = get_loss(pred, labels_pl)
             tf.summary.scalar('loss', loss)
 
             # Get training operator
@@ -137,6 +137,8 @@ def train():
                'is_training_pl': is_training_pl,
                'pred': pred,
                'loss': loss,
+               'loss_dist': loss_dist,
+               'loss_force':  loss_force,
                'train_op': train_op,
                'merged': merged,
                'step': batch}
@@ -166,14 +168,16 @@ def train_one_epoch(sess, ops, train_writer):
     # current_data, current_label, _ = provider.shuffle_data(train_data[:,0:NUM_POINT,:], train_label)
     # data = np.load('../new_data_10k/training_data.npy').item()
     data = np.load('../data_atom10/training_data.npy').item()
-    current_data, current_label = np.concatenate([data['pos_in'],data['force_in']], -1), data['pos_out']
+    current_data, current_label = np.concatenate([data['pos_in'],data['force_in']], -1),  np.concatenate([data['pos_out'],data['force_out']], -1)
     file_size = current_data.shape[0]
     num_batches = file_size // BATCH_SIZE
     
     total_correct = 0
     total_seen = 0
     loss_sum = 0
-    
+    loss_dist_sum = 0
+    loss_force_sum = 0
+
     for batch_idx in range(num_batches):
         if batch_idx % 100 == 0:
             print('Current batch/total batch num: %d/%d'%(batch_idx,num_batches))
@@ -183,14 +187,17 @@ def train_one_epoch(sess, ops, train_writer):
         feed_dict = {ops['pointclouds_pl']: current_data[start_idx:end_idx],
                      ops['labels_pl']: current_label[start_idx:end_idx],
                      ops['is_training_pl']: is_training,}
-        summary, step, _, loss_val, pred_val = sess.run([ops['merged'], ops['step'], ops['train_op'], ops['loss'], ops['pred']],
-                                         feed_dict=feed_dict)
+        _, summary, step, loss_val, loss_dist_val, loss_force_val, pred_val = sess.run([ops['train_op'], ops['merged'], ops['step'], ops['loss'], ops['loss_dist'], ops['loss_force'], ops['pred']],
+                                      feed_dict=feed_dict)
         train_writer.add_summary(summary, step)
         total_seen += (BATCH_SIZE*NUM_POINT)
-        loss_sum += loss_val
+        loss_sum += (loss_val * BATCH_SIZE)
+        loss_dist_sum += (loss_dist_val * BATCH_SIZE)
+        loss_force_sum += (loss_force_val * BATCH_SIZE)
 
-    acc = loss_sum / float(num_batches)
-    log_string('mean loss: %f' % (acc))
+    acc = loss_sum / float(total_seen / NUM_POINT)
+    acc_force = loss_force_sum / float(total_seen / NUM_POINT)
+    log_string('train mean loss: %f %f' % (acc, acc_force))
     return acc
         
 def eval_one_epoch(sess, ops, test_writer):
@@ -198,13 +205,15 @@ def eval_one_epoch(sess, ops, test_writer):
     is_training = False
     total_seen = 0
     loss_sum = 0
+    loss_dist_sum = 0
+    loss_force_sum = 0
 
     log_string('----')
     # current_data = test_data[:,0:NUM_POINT,:]
     # current_label = np.squeeze(test_label)
     # data = np.load('../new_data_10k/testing_data.npy').item()
     data = np.load('../data_atom10/testing_data.npy').item()
-    current_data, current_label = np.concatenate([data['pos_in'],data['force_in']], -1), data['pos_out']
+    current_data, current_label = np.concatenate([data['pos_in'],data['force_in']], -1), np.concatenate([data['pos_out'],data['force_out']], -1)
 
     file_size = current_data.shape[0]
     num_batches = file_size // BATCH_SIZE
@@ -216,14 +225,17 @@ def eval_one_epoch(sess, ops, test_writer):
         feed_dict = {ops['pointclouds_pl']: current_data[start_idx:end_idx],
                      ops['labels_pl']: current_label[start_idx:end_idx],
                      ops['is_training_pl']: is_training}
-        summary, step, loss_val, pred_val = sess.run([ops['merged'], ops['step'], ops['loss'], ops['pred']],
+        summary, step, loss_val, loss_dist_val, loss_force_val, pred_val = sess.run([ops['merged'], ops['step'], ops['loss'], ops['loss_dist'], ops['loss_force'], ops['pred']],
                                       feed_dict=feed_dict)
         test_writer.add_summary(summary, step)
         total_seen += (BATCH_SIZE*NUM_POINT)
         loss_sum += (loss_val*BATCH_SIZE)
+        loss_dist_sum += (loss_dist_val*BATCH_SIZE)
+        loss_force_sum += (loss_force_val*BATCH_SIZE)
 
     acc = loss_sum / float(total_seen/NUM_POINT)
-    log_string('eval mean loss: %f' % (acc))
+    acc_force = loss_force_sum / float(total_seen/NUM_POINT)
+    log_string('eval mean loss: %f %f' % (acc, acc_force))
     return acc
 
     def visual():
