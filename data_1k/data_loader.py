@@ -21,7 +21,8 @@ for i in range(3):
     force_in[:,:,i] = (force_in[:,:,i]-np.min(force_in[:,:,i])) / (np.max(force_in[:,:,i])-np.min(force_in[:,:,i]))
 print(force_in.shape)
 
-potential_in = data_in[:,-1]
+potential_in = data_in[:,-101:-1]
+total_potential_in = data_in[:,-1]
 print(potential_in.shape)
 
 
@@ -44,7 +45,7 @@ for i in range(3):
     force_out[:,:,i] = (force_out[:,:,i]-np.min(force_out[:,:,i])) / (np.max(force_out[:,:,i])-np.min(force_out[:,:,i]))
 print(force_out.shape)
 
-potential_out = data_in[:,-2]
+potential_out = data_in[:,-101:-1]
 print(potential_out.shape)
 
 num_itr = data_out[:,-1]

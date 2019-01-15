@@ -19,10 +19,10 @@ from model import *
 parser = argparse.ArgumentParser()
 parser.add_argument('--gpu', type=int, default=1, help='GPU to use [default: GPU 0]')
 parser.add_argument('--log_dir', default='log_larger', help='Log dir [default: log_larger]')
-parser.add_argument('--num_point', type=int, default=10, help='Point number [default: 4096]')
+parser.add_argument('--num_point', type=int, default=100, help='Point number [default: 4096]')
 parser.add_argument('--max_epoch', type=int, default=5000, help='Epoch to run [default: 50]')
 parser.add_argument('--batch_size', type=int, default=50, help='Batch Size during training [default: 24]')
-parser.add_argument('--learning_rate', type=float, default=0.001, help='Initial learning rate [default: 0.001]')
+parser.add_argument('--learning_rate', type=float, default=0.0001, help='Initial learning rate [default: 0.001]')
 parser.add_argument('--momentum', type=float, default=0.9, help='Initial learning rate [default: 0.9]')
 parser.add_argument('--optimizer', default='adam', help='adam or momentum [default: adam]')
 parser.add_argument('--decay_step', type=int, default=300000, help='Decay step for lr decay [default: 300000]')
@@ -168,10 +168,10 @@ def train_one_epoch(sess, ops, train_writer):
     log_string('----')
     # current_data, current_label, _ = provider.shuffle_data(train_data[:,0:NUM_POINT,:], train_label)
     # data = np.load('../new_data_10k/training_data.npy').item()
-    data = np.load('../data_atom10/training_data.npy').item()
-    potential_in = np.tile(np.expand_dims(np.expand_dims(data['potential_in'], -1), -1), (1, NUM_POINT, 1))
+    data = np.load('../data_1k/training_data.npy').item()
+    potential_in = np.expand_dims(data['potential_in'], -1)
     current_data = np.concatenate([data['pos_in'],data['force_in'],potential_in], -1)
-    potential_out = np.tile(np.expand_dims(np.expand_dims(data['potential_out'], -1), -1), (1, NUM_POINT, 1))
+    potential_out =np.expand_dims(data['potential_out'], -1)
     current_label = np.concatenate([data['pos_out'],data['force_out'],potential_out], -1)
     file_size = current_data.shape[0]
     num_batches = file_size // BATCH_SIZE
@@ -227,10 +227,10 @@ def eval_one_epoch(sess, ops, test_writer):
     # current_data = test_data[:,0:NUM_POINT,:]
     # current_label = np.squeeze(test_label)
     # data = np.load('../new_data_10k/testing_data.npy').item()
-    data = np.load('../data_atom10/testing_data.npy').item()
-    potential_in = np.tile(np.expand_dims(np.expand_dims(data['potential_in'], -1), -1), (1, NUM_POINT, 1))
+    data = np.load('../data_1k/testing_data.npy').item()
+    potential_in = np.expand_dims(data['potential_in'], -1)
     current_data = np.concatenate([data['pos_in'],data['force_in'],potential_in], -1)
-    potential_out = np.tile(np.expand_dims(np.expand_dims(data['potential_out'], -1), -1), (1, NUM_POINT, 1))
+    potential_out =np.expand_dims(data['potential_out'], -1)
     current_label = np.concatenate([data['pos_out'],data['force_out'],potential_out], -1)
 
     file_size = current_data.shape[0]
