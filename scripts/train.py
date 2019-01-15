@@ -208,7 +208,7 @@ def train_one_epoch(sess, ops, train_writer):
         loss_force_sum += (loss_force_val * BATCH_SIZE)
         loss_energy_sum += (loss_energy_val * BATCH_SIZE)
 
-    acc = loss_sum / float(total_seen / NUM_POINT)
+    acc = loss_dist_sum / float(total_seen / NUM_POINT)
     acc_force = loss_force_sum / float(total_seen / NUM_POINT)
     acc_energy = loss_energy_sum / float(total_seen / NUM_POINT)
     log_string('train mean loss: %f %f %f' % (acc, acc_force, acc_energy))
@@ -258,7 +258,7 @@ def eval_one_epoch(sess, ops, test_writer):
         loss_force_sum += (loss_force_val*BATCH_SIZE)
         loss_energy_sum += (loss_energy_val*BATCH_SIZE)
 
-    acc = loss_sum / float(total_seen/NUM_POINT)
+    acc = loss_dist_sum / float(total_seen/NUM_POINT)
     acc_force = loss_force_sum / float(total_seen/NUM_POINT)
     acc_energy = loss_energy_sum / float(total_seen/NUM_POINT)
     log_string('eval mean loss: %f %f %f' % (acc, acc_force, acc_energy))
